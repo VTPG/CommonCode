@@ -34,10 +34,14 @@ static NSString *VTPGStringFromFourCharCodeOrUnsignedInt32(FourCharCode fourcc) 
 										fourcc & 0xFF];
 }
 
+static NSString *StringFromNSDecimalWithCurrentLocal(NSDecimal dcm) {
+	return NSDecimalString(&dcm, [NSLocale currentLocale]);						   
+}
+
 NSString * VTPG_DDToStringFromTypeAndValue(const char * typeCode, void * value) {
 	#define IF_TYPE_MATCHES_INTERPRET_WITH(typeToMatch,func) \
 		if (strcmp(typeCode, @encode(typeToMatch)) == 0) \
-			return func(*(typeToMatch*)value)
+			return (func)(*(typeToMatch*)value)
 
 #if	TARGET_OS_IPHONE
 	IF_TYPE_MATCHES_INTERPRET_WITH(CGPoint,NSStringFromCGPoint);
@@ -52,10 +56,12 @@ NSString * VTPG_DDToStringFromTypeAndValue(const char * typeCode, void * value) 
 	IF_TYPE_MATCHES_INTERPRET_WITH(Class,NSStringFromClass);
 	IF_TYPE_MATCHES_INTERPRET_WITH(SEL,NSStringFromSelector);
 	IF_TYPE_MATCHES_INTERPRET_WITH(BOOL,VTPGStringFromBoolOrCharValue);
+	IF_TYPE_MATCHES_INTERPRET_WITH(NSDecimal,StringFromNSDecimalWithCurrentLocal);
 	
 	#define IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(typeToMatch,formatString) \
 		if (strcmp(typeCode, @encode(typeToMatch)) == 0) \
-			return [NSString stringWithFormat:formatString, (*(typeToMatch*)value)]
+			return [NSString stringWithFormat:(formatString), (*(typeToMatch*)value)]
+	
 	
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(CFStringRef,@"%@"); //CFStringRef is toll-free bridged to NSString*
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(CFArrayRef,@"%@"); //CFArrayRef is toll-free bridged to NSArray*
@@ -70,13 +76,23 @@ NSString * VTPG_DDToStringFromTypeAndValue(const char * typeCode, void * value) 
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(int,@"%i");
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(unsigned, @"%u");
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(long,@"%i");
-	//unfortunatly @encode(long double) == @encode(double), which is incorrect on i386.
-	//IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(long double,@"%Lf");
+	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(long double,@"%Lf"); //WARNING on older versions of OS X, @encode(long double) == @encode(double)
 	
+	//C-strings
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(char*, @"%s");
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(const char*, @"%s");
 	if(TypeCodeIsCharArray(typeCode))
 		return [NSString stringWithFormat:@"%s", (char*)value];
-		
-	return [NSString stringWithFormat:@"%s: Unknown typeCode <%s>", __FUNCTION__, typeCode];
+	
+	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(void*,@"(void*)%p");
+	
+	//This is a hack to print out CLLocationCoordinate2D, without needing to #import <CoreLocation/CoreLocation.h>
+	//A CLLocationCoordinate2D is a struct made up of 2 doubles.
+	//We detect it by hard-coding the result of @encode(CLLocationCoordinate2D).
+	//We get at the fields by treating it like an array of doubles, which it is identical to in memory.
+	if(strcmp(typeCode, "{?=dd}")==0)//@encode(CLLocationCoordinate2D)
+		return [NSString stringWithFormat:@"{latitude=%g,longitude=%g}",((double*)value)[0],((double*)value)[1]];
+	
+	//we don't know how to convert this typecode into an NSString
+	return nil;
 }

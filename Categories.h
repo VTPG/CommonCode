@@ -23,6 +23,9 @@
 @end
 
 #pragma mark Misc
+@interface NSObject (VTPGExtensions)
++ (id) make;
+@end
 @interface NSString (IndempotentPercentEscapes)
 //uses UTF8 encoding, behavior is undefined if for other encodings.
 - (NSString*) stringByAddingPercentEscapesOnce;
@@ -42,6 +45,7 @@
 
 @interface NSBundle (VTPGExtensions)
 - (NSString*) bundleVersion;
+- (NSURL*) URLForResource:(NSString *)name ofType:(NSString *)ext;
 @end
 
 #pragma mark HigherOrderOperations

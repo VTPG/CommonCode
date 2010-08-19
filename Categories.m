@@ -43,6 +43,15 @@
 }
 @end
 
+@implementation NSObject (VTPGExtensions)
++ (id) make;
+{
+	return [[[[self class] alloc] init] autorelease];
+}
+
+@end
+
+
 @implementation NSString (IndempotentPercentEscapes)
 - (NSString*) stringByReplacingPercentEscapesOnce;
 {
@@ -72,6 +81,15 @@
 {
 	return [self objectForInfoDictionaryKey:@"CFBundleVersion"];
 }
+
+- (NSURL*) URLForResource:(NSString *)name ofType:(NSString *)ext;
+{
+	NSString *path = [self pathForResource:name ofType:ext];
+	if(!path)
+		return nil;//fileURLWithPath: will throw an exception if path is nil.
+	return [NSURL fileURLWithPath:path];
+}
+
 @end
 
 @implementation NSDate (VTPGDateComparison)
