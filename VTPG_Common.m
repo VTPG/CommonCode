@@ -41,6 +41,12 @@ static NSString *StringFromNSDecimalWithCurrentLocal(NSDecimal dcm) {
 	return NSDecimalString(&dcm, [NSLocale currentLocale]);						   
 }
 
+#ifdef __CORELOCATION__
+static NSString* StringFromCLLocationCoordinate2D(CLLocationCoordinate2D coordinate) {
+    return [NSString stringWithFormat:@"{latitude=%g,longitude=%g}", coordinate.latitude, coordinate.longitude];
+}
+#endif
+
 NSString * VTPG_DDToStringFromTypeAndValue(const char * typeCode, void * value) {
 	#define IF_TYPE_MATCHES_INTERPRET_WITH(typeToMatch,func) \
 		if (strcmp(typeCode, @encode(typeToMatch)) == 0) \
@@ -73,6 +79,11 @@ NSString * VTPG_DDToStringFromTypeAndValue(const char * typeCode, void * value) 
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(unsigned long long,@"%llu");
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(float,@"%f");
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(double,@"%f");
+
+#ifdef __CORELOCATION__
+    IF_TYPE_MATCHES_INTERPRET_WITH(CLLocationCoordinate2D,StringFromCLLocationCoordinate2D);
+#endif
+
 #if __has_feature(objc_arc)
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(__unsafe_unretained id,@"%@");
 #else /* not __has_feature(objc_arc) */
@@ -92,13 +103,6 @@ NSString * VTPG_DDToStringFromTypeAndValue(const char * typeCode, void * value) 
 		return [NSString stringWithFormat:@"%s", (char*)value];
 	
 	IF_TYPE_MATCHES_INTERPRET_WITH_FORMAT(void*,@"(void*)%p");
-	
-	//This is a hack to print out CLLocationCoordinate2D, without needing to #import <CoreLocation/CoreLocation.h>
-	//A CLLocationCoordinate2D is a struct made up of 2 doubles.
-	//We detect it by hard-coding the result of @encode(CLLocationCoordinate2D).
-	//We get at the fields by treating it like an array of doubles, which it is identical to in memory.
-	if(strcmp(typeCode, "{?=dd}")==0)//@encode(CLLocationCoordinate2D)
-		return [NSString stringWithFormat:@"{latitude=%g,longitude=%g}",((double*)value)[0],((double*)value)[1]];
 	
 	//we don't know how to convert this typecode into an NSString
 	return nil;
